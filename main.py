@@ -15,7 +15,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 logger = logging.getLogger(__name__)
 
 # Набор состояний
-START, RULES, FIO, PROFESSION, HOBBY = range(5)
+START, ABOUT, RULES, FIO, PROFESSION, HOBBY = range(6)
 
 
 # Первое сообщение, которое получает пользователь, введя команду /start
@@ -47,11 +47,7 @@ def about(update, context):
              "Ну что, все понятно?",
         reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
     )
-    answer = update.message.reply_text
-    if answer == reply_keyboard[0]:
-        return FIO
-    else:
-        return RULES
+    return ABOUT
 
 
 def fio(update, context):
@@ -97,10 +93,12 @@ def main():
         entry_points=[CommandHandler('start', start)],
         states={
             START: [MessageHandler(Filters.regex('Начать'), about)],
-            RULES: [MessageHandler(Filters.regex('Нет'), rules)],
+            ABOUT: [
+                MessageHandler(Filters.regex('Да'),  fio),
+                MessageHandler(Filters.regex('Нет'), rules),
+            ],
             FIO: [
                 MessageHandler(Filters.regex('Теперь понятно'), fio),
-                MessageHandler(Filters.regex('Да'), fio)
             ]
         },
         fallbacks=[CommandHandler('cancel', cancel)]
