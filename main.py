@@ -1,5 +1,5 @@
 import logging
-import config
+import sqlite3
 
 from telegram import (ReplyKeyboardMarkup, ReplyKeyboardRemove)
 from telegram.ext import CommandHandler
@@ -8,6 +8,15 @@ from telegram.ext import Filters
 from telegram.ext import MessageHandler
 from telegram.ext import Updater
 
+import config
+
+# Имя файла для Базы Данных
+DATABASE_NAME = "hr.db"
+# Таблица, которая хранит данные о пользователях - id(айдишник в телеграме) имя, почта, профессия
+USERS_TABLE = "users"
+# Таблица, которая хранит данные о встречах (2 id пользователей, timestamp, когда они были сматчены и отзывы о встрече)
+MEETINGS_TABLE = "meetings"
+
 # Стандартное логирование
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
@@ -15,7 +24,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 logger = logging.getLogger(__name__)
 
 # Набор состояний
-START, ABOUT, RULES, FIO, PROFESSION, HOBBY = range(6)
+START, ABOUT, RULES, FIO, EMAIL, PROFESSION, HOBBY = range(7)
 
 
 # Первое сообщение, которое получает пользователь, введя команду /start
@@ -55,6 +64,27 @@ def fio(update, context):
         chat_id=update.effective_chat.id,
         text="Сначала напиши свое имя, фамилию и отчество."
     )
+    return EMAIL
+
+
+def email(update, context):
+    user_id = update.effective_chat.id
+    fio = update.message.text
+    connection = sqlite3.connect(DATABASE_NAME)
+    sql_insert = "INSERT INTO " + USERS_TABLE + "(id, name) VALUES (?, ?);"
+    data_tuple = user_id, fio
+    connection.execute(sql_insert, data_tuple)
+    connection.commit()
+    connection.close()
+
+    context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="Мы очень рады знакомству! \n"
+             "Подтверди, пожалуйста, свой email-адрес, с помощью которого ты был зарегистрирован на HRbazaar, "
+             "чтобы мы могли проверить твой профиль. \n"
+             "Введи свой e-mail"
+    )
+    return PROFESSION
 
 
 def rules(update, context):
@@ -84,7 +114,17 @@ def error(update, context):
     logger.warning('Update "%s" caused error "%s"', update, context.error)
 
 
+# Создаем таблицы в базе данных, если они еще не существуют
+def create_db_tables():
+    connection = sqlite3.connect(DATABASE_NAME)
+    connection.execute("CREATE TABLE IF NOT EXISTS " + USERS_TABLE + " (id INT PRIMARY KEY NOT NULL, "
+                                                                     "name TEXT NOT NULL);")
+    connection.close()
+
+
 def main():
+    create_db_tables()
+
     # Создаем экземпляр бота используя токен. Параметр use_context используется для библиотеки выше 12 версии
     updater = Updater(token=config.token, use_context=True)
     dispatcher = updater.dispatcher
@@ -94,11 +134,17 @@ def main():
         states={
             START: [MessageHandler(Filters.regex('Начать'), about)],
             ABOUT: [
-                MessageHandler(Filters.regex('Да'),  fio),
+                MessageHandler(Filters.regex('Да'), fio),
                 MessageHandler(Filters.regex('Нет'), rules),
             ],
             FIO: [
                 MessageHandler(Filters.regex('Теперь понятно'), fio),
+            ],
+            EMAIL: [
+                MessageHandler(Filters.text, email)
+            ],
+            PROFESSION: [
+
             ]
         },
         fallbacks=[CommandHandler('cancel', cancel)]
