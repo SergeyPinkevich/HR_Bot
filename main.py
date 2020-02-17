@@ -109,6 +109,20 @@ def rules(update, context):
     return FIO
 
 
+def check_if_person_exist(user_id):
+    connection = sqlite3.connect(DATABASE_NAME)
+    cursor = connection.cursor()
+    sql_select = "SELECT * FROM " + USERS_TABLE + " WHERE id = ? LIMIT 1;"
+    cursor.execute(sql_select, (user_id,))
+    result = cursor.fetchall()
+    connection.commit()
+    connection.close()
+    if len(result) > 0:
+        return True
+    else:
+        return False
+
+
 def cancel(update, context):
     user = update.message.from_user
     logger.info("User %s canceled the conversation.", user.first_name)
