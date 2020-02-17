@@ -80,11 +80,20 @@ def email(update, context):
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Мы очень рады знакомству! \n"
-             "Подтверди, пожалуйста, свой email-адрес, с помощью которого ты был зарегистрирован на HRbazaar, "
-             "чтобы мы могли проверить твой профиль. \n"
-             "Введи свой e-mail"
+             "Пожалуйста, введи свой email-адрес, с помощью которого ты был зарегистрирован на HRbazaar."
     )
     return PROFESSION
+
+
+def profession(update, context):
+    user_id = update.effective_chat.id
+    email = update.message.text
+    connection = sqlite3.connect(DATABASE_NAME)
+    sql_update = "UPDATE " + USERS_TABLE + " SET email = ? WHERE id = ?;"
+    data_tuple = email, user_id
+    connection.execute(sql_update, data_tuple)
+    connection.commit()
+    connection.close()
 
 
 def rules(update, context):
@@ -118,7 +127,9 @@ def error(update, context):
 def create_db_tables():
     connection = sqlite3.connect(DATABASE_NAME)
     connection.execute("CREATE TABLE IF NOT EXISTS " + USERS_TABLE + " (id INT PRIMARY KEY NOT NULL, "
-                                                                     "name TEXT NOT NULL);")
+                                                                     "name TEXT,"
+                                                                     "email TEXT,"
+                                                                     "profession TEXT);")
     connection.close()
 
 
@@ -144,7 +155,7 @@ def main():
                 MessageHandler(Filters.text, email)
             ],
             PROFESSION: [
-
+                MessageHandler(Filters.text, profession)
             ]
         },
         fallbacks=[CommandHandler('cancel', cancel)]
