@@ -24,7 +24,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 logger = logging.getLogger(__name__)
 
 # Набор состояний
-START, ABOUT, RULES, FIO, EMAIL, PROFESSION, HOBBY = range(7)
+START, ABOUT, RULES, FIO, EMAIL, PROFESSION, EXPERT, MODERATION, FINAL = range(9)
 
 
 # Первое сообщение, которое получает пользователь, введя команду /start
@@ -95,6 +95,57 @@ def profession(update, context):
     connection.commit()
     connection.close()
 
+    context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="Укажи место, где ты работаешь, и свою должность. Нам будет интересно узнать, чем ты занимаешься!"
+    )
+
+    return EXPERT
+
+
+def expert(update, context):
+    user_id = update.effective_chat.id
+    profession = update.message.text
+    connection = sqlite3.connect(DATABASE_NAME)
+    sql_update = "UPDATE " + USERS_TABLE + " SET profession = ? WHERE id = ?;"
+    data_tuple = profession, user_id
+    connection.execute(sql_update, data_tuple)
+    connection.commit()
+    connection.close()
+
+    context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="Теперь расскажи нам, в чем ты разбираешься лучше всего? "
+             "Укажи область своей экспертизы. Можно указать не более 3 сфер."
+    )
+    return FINAL
+
+
+def final_step(update, context):
+    user_id = update.effective_chat.id
+    expert = update.message.text
+    connection = sqlite3.connect(DATABASE_NAME)
+    sql_update = "UPDATE " + USERS_TABLE + " SET expert = ? WHERE id = ?;"
+    data_tuple = expert, user_id
+    connection.execute(sql_update, data_tuple)
+    connection.commit()
+    connection.close()
+
+    reply_keyboard = [["Здорово, буду ждать!"]]
+
+    context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="Супер! Мы уверены, что ты очень интересный собеседник! "
+             "Подождешь немного, пока мы проверим твою анкету? "
+             "Сразу после этого мы познакомим тебя с тем, кого ты позовешь на кофе!",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
+    )
+    return MODERATION
+
+
+def moderation(update, context):
+    print('Lets wait')
+
 
 def rules(update, context):
     reply_keyboard = [["Теперь понятно!"]]
@@ -143,6 +194,7 @@ def create_db_tables():
     connection.execute("CREATE TABLE IF NOT EXISTS " + USERS_TABLE + " (id INT PRIMARY KEY NOT NULL, "
                                                                      "name TEXT,"
                                                                      "email TEXT,"
+                                                                     "expert TEXT,"
                                                                      "profession TEXT);")
     connection.close()
 
@@ -170,6 +222,15 @@ def main():
             ],
             PROFESSION: [
                 MessageHandler(Filters.text, profession)
+            ],
+            EXPERT: [
+                MessageHandler(Filters.text, expert)
+            ],
+            FINAL: [
+                MessageHandler(Filters.text, final_step)
+            ],
+            MODERATION: [
+                MessageHandler(Filters.regex('Здорово, буду ждать!'), moderation)
             ]
         },
         fallbacks=[CommandHandler('cancel', cancel)]
